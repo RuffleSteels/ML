@@ -1,0 +1,210 @@
+4.2.2 Fitted value iteration
+We now describe the fitted value iteration algorithm for approximating
+the value function of a continuous state MDP. In the sequel, we will assume
+that the problem has a continuous state space S = R
+d
+, but that the action
+space A is small and discrete.4
+4
+In practice, most MDPs have much smaller action spaces than state spaces. E.g., a car
+has a 6d state space, and a 2d action space (steering and velocity controls); the inverted
+pendulum has a 4d state space, and a 1d action space; a helicopter has a 12d state space,
+and a 4d action space. So, discretizing this set of actions is usually less of a problem than
+discretizing the state space would have been.
+13
+Recall that in value iteration, we would like to perform the update
+V (s) := R(s) + γ max
+a
+Z
+s
+′
+Psa(s
+′
+)V (s
+′
+)ds′
+(6)
+= R(s) + γ max
+a
+Es
+′∼Psa[V (s
+′
+)] (7)
+(In Section 2, we had written the value iteration update with a summation
+V (s) := R(s) + γ maxa
+P
+s
+′ Psa(s
+′
+)V (s
+′
+) rather than an integral over states;
+the new notation reflects that we are now working in continuous states rather
+than discrete states.)
+The main idea of fitted value iteration is that we are going to approximately carry out this step, over a finite sample of states s
+(1), . . . , s(n)
+. Specifically, we will use a supervised learning algorithm—linear regression in our
+description below—to approximate the value function as a linear or non-linear
+function of the states:
+V (s) = θ
+T φ(s).
+Here, φ is some appropriate feature mapping of the states.
+For each state s in our finite sample of n states, fitted value iteration will first compute a quantity y
+(i)
+, which will be our approximation
+to R(s) + γ maxa Es
+′∼Psa[V (s
+′
+)] (the right hand side of Equation 7). Then,
+it will apply a supervised learning algorithm to try to get V (s) close to
+R(s) + γ maxa Es
+′∼Psa[V (s
+′
+)] (or, in other words, to try to get V (s) close to
+y
+(i)
+).
+In detail, the algorithm is as follows:
+1. Randomly sample n states s
+(1), s(2), . . . s(n) ∈ S.
+2. Initialize θ := 0.
+3. Repeat {
+For i = 1, . . . , n {
+For each action a ∈ A {
+Sample s
+′
+1
+, . . . , s′
+k ∼ Ps
+(i)a
+(using a model of the MDP).
+Set q(a) = 1
+k
+Pk
+j=1 R(s
+(i)
+) + γV (s
+′
+j
+)
+// Hence, q(a) is an estimate of R(s
+(i)
+)+γEs
+′∼Ps
+(i)a
+[V (s
+′
+)].
+}
+Set y
+(i) = maxa q(a).
+// Hence, y
+(i)
+is an estimate of R(s
+(i)
+)+γ maxa Es
+′∼Ps
+(i)a
+[V (s
+′
+)].
+14
+}
+// In the original value iteration algorithm (over discrete states)
+// we updated the value function according to V (s
+(i)
+) := y
+(i)
+.
+// In this algorithm, we want V (s
+(i)
+) ≈ y
+(i)
+, which we’ll achieve
+// using supervised learning (linear regression).
+Set θ := arg minθ
+1
+2
+Pn
+i=1
+θ
+T φ(s
+(i)
+) − y
+(i)
+2
+}
+Above, we had written out fitted value iteration using linear regression
+as the algorithm to try to make V (s
+(i)
+) close to y
+(i)
+. That step of the algorithm is completely analogous to a standard supervised learning (regression)
+problem in which we have a training set (x
+(1), y(1)),(x
+(2), y(2)), . . . ,(x
+(n)
+, y(n)
+),
+and want to learn a function mapping from x to y; the only difference is that
+here s plays the role of x. Even though our description above used linear regression, clearly other regression algorithms (such as locally weighted linear
+regression) can also be used.
+Unlike value iteration over a discrete set of states, fitted value iteration
+cannot be proved to always to converge. However, in practice, it often does
+converge (or approximately converge), and works well for many problems.
+Note also that if we are using a deterministic simulator/model of the MDP,
+then fitted value iteration can be simplified by setting k = 1 in the algorithm.
+This is because the expectation in Equation (7) becomes an expectation over
+a deterministic distribution, and so a single example is sufficient to exactly
+compute that expectation. Otherwise, in the algorithm above, we had to
+draw k samples, and average to try to approximate that expectation (see the
+definition of q(a), in the algorithm pseudo-code).
+Finally, fitted value iteration outputs V , which is an approximation to
+V
+∗
+. This implicitly defines our policy. Specifically, when our system is in
+some state s, and we need to choose an action, we would like to choose the
+action
+arg max
+a
+Es
+′∼Psa[V (s
+′
+)] (8)
+The process for computing/approximating this is similar to the inner-loop of
+fitted value iteration, where for each action, we sample s
+′
+1
+, . . . , s′
+k ∼ Psa to
+approximate the expectation. (And again, if the simulator is deterministic,
+we can set k = 1.)
+In practice, there are often other ways to approximate this step as well.
+For example, one very common case is if the simulator is of the form st+1
+15
+f(st
+, at) + ǫt
+, where f is some deterministic function of the states (such as
+f(st
+, at) = Ast + Bat), and ǫ is zero-mean Gaussian noise. In this case, we
+can pick the action given by
+arg max
+a
+V (f(s, a)).
+In other words, here we are just setting ǫt = 0 (i.e., ignoring the noise in
+the simulator), and setting k = 1. Equivalent, this can be derived from
+Equation (8) using the approximation
+Es
+′[V (s
+′
+)] ≈ V (Es
+′[s
+′
+]) (9)
+= V (f(s, a)), (10)
+where here the expectation is over the random s
+′ ∼ Psa. So long as the noise
+terms ǫt are small, this will usually be a reasonable approximation.
+However, for problems that don’t lend themselves to such approximations,
+having to sample k|A| states using the model, in order to approximate the
+expectation above, can be computationally expensive.
